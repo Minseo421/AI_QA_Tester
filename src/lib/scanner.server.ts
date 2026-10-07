@@ -1,0 +1,148 @@
+// Deterministic crawler: collects hard evidence about a page before AI review.
+export type LinkCheck = { url: string; status: number | null; ok: boolean; error?: string; ms: number };
+export type PageFacts = {
+  url: string;
+  finalUrl: string;
+  status: number;
+  ms: number;
+  bytes: number;
+  headers: Record<string, string>;
+  title: string | null;
+  metaDescription: string | null;
+  lang: string | null;
+  viewport: string | null;
+  h1s: string[];
+  headingOutline: string[];
+  imagesTotal: number;
+  imagesMissingAlt: string[];
+  forms: { action: string; method: string; inputs: string[]; unlabeled: string[] }[];
+  buttonsWithoutText: number;
+  links: string[];
+  scripts: number;
+  stylesheets: number;
+  mixedContent: string[];
+  textExcerpt: string;
+};
+export type ScanData = { target: string; pages: PageFacts[]; linkChecks: LinkCheck[]; durationMs: number };
+
+const UA = "Mozilla/5.0 (compatible; AIQATester/1.0)";
+const strip = (s: string) => s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+const attr = (tag: string, name: string) => {
+  const m = tag.match(new RegExp(`\\s${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
+  return m ? (m[2] ?? m[3] ?? m[4] ?? "") : null;
+};
+
+async function timedFetch(url: string, method = "GET", timeout = 10000) {
+  const t = Date.now();
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), timeout);
+  try {
+    const res = await fetch(url, { method, redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": UA, Accept: "text/html,*/*" } });
+    return { res, ms: Date.now() - t };
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+function parse(url: string, finalUrl: string, html: string): Omit<PageFacts, "status" | "ms" | "bytes" | "headers"> {
+  const base = new URL(finalUrl);
+  const tags = (re: RegExp) => html.match(re) ?? [];
+  const metas = tags(/<meta\b[^>]*>/gi);
+  const meta = (n: string) => {
+    const t = metas.find((m) => (attr(m, "name") ?? attr(m, "property"))?.toLowerCase() === n);
+    return t ? attr(t, "content") : null;
+  };
+  const titleM = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const htmlTag = html.match(/<html\b[^>]*>/i)?.[0] ?? "";
+  const imgs = tags(/<img\b[^>]*>/gi);
+  const imagesMissingAlt = imgs.filter((i) => attr(i, "alt") === null).map((i) => attr(i, "src") ?? "(no src)").slice(0, 15);
+  const headingOutline = (html.match(/<h[1-6]\b[^>]*>[\s\S]*?<\/h[1-6]>/gi) ?? [])
+    .map((h) => `${h.slice(1, 3).toUpperCase()}: ${strip(h).slice(0, 80)}`)
+    .slice(0, 30);
+  const labelsFor = new Set(tags(/<label\b[^>]*>/gi).map((l) => attr(l, "for")).filter(Boolean) as string[]);
+  const forms = (html.match(/<form\b[\s\S]*?<\/form>/gi) ?? []).slice(0, 8).map((f) => {
+    const open = f.match(/<form\b[^>]*>/i)![0];
+    const inputs = (f.match(/<(input|textarea|select)\b[^>]*>/gi) ?? []).filter((i) => !/type\s*=\s*["']?(hidden|submit|button)/i.test(i));
+    const desc = inputs.map((i) => `${attr(i, "type") ?? i.match(/<(\w+)/)![1]} name=${attr(i, "name") ?? "?"}${/\srequired/i.test(i) ? " required" : ""}`);
+    const unlabeled = inputs
+      .filter((i) => !(attr(i, "id") && labelsFor.has(attr(i, "id")!)) && !attr(i, "aria-label") && !attr(i, "aria-labelledby"))
+      .map((i) => attr(i, "name") ?? attr(i, "placeholder") ?? "(unnamed)");
+    return { action: attr(open, "action") ?? "(none)", method: (attr(open, "method") ?? "get").toUpperCase(), inputs: desc, unlabeled };
+  });
+  const buttonsWithoutText = (html.match(/<button\b[^>]*>[\s\S]*?<\/button>/gi) ?? []).filter(
+    (b) => !strip(b) && !attr(b.match(/<button\b[^>]*>/i)![0], "aria-label"),
+  ).length;
+  const links = new Set<string>();
+  for (const a of tags(/<a\b[^>]*>/gi)) {
+    const h = attr(a, "href");
+    if (!h || /^(#|mailto:|tel:|javascript:)/i.test(h)) continue;
+    try {
+      const u = new URL(h, base);
+      u.hash = "";
+      if (u.protocol.startsWith("http")) links.add(u.toString());
+    } catch {}
+  }
+  const mixedContent =
+    base.protocol === "https:" ? (html.match(/(src|href)\s*=\s*["']http:\/\/[^"']+/gi) ?? []).map((m) => m.split(/["']/)[1]).slice(0, 10) : [];
+  const body = html.replace(/<(script|style|noscript|svg)\b[\s\S]*?<\/\1>/gi, " ");
+  return {
+    url,
+    finalUrl,
+    title: titleM ? strip(titleM[1]) : null,
+    metaDescription: meta("description"),
+    lang: attr(htmlTag, "lang"),
+    viewport: meta("viewport"),
+    h1s: headingOutline.filter((h) => h.startsWith("H1")).map((h) => h.slice(4)),
+    headingOutline,
+    imagesTotal: imgs.length,
+    imagesMissingAlt,
+    forms,
+    buttonsWithoutText,
+    links: [...links],
+    scripts: tags(/<script\b/gi).length,
+    stylesheets: tags(/<link\b[^>]*stylesheet[^>]*>/gi).length,
+    mixedContent,
+    textExcerpt: strip(body).slice(0, 2500),
+  };
+}
+
+async function scanPage(url: string): Promise<PageFacts> {
+  const { res, ms } = await timedFetch(url, "GET", 15000);
+  const html = await res.text();
+  const headers: Record<string, string> = {};
+  for (const k of ["content-type", "content-security-policy", "strict-transport-security", "x-frame-options", "x-content-type-options", "cache-control", "server"]) {
+    const v = res.headers.get(k);
+    if (v) headers[k] = v.slice(0, 120);
+  }
+  return { ...parse(url, res.url || url, html), status: res.status, ms, bytes: html.length, headers };
+}
+
+async function checkLink(url: string): Promise<LinkCheck> {
+  const t = Date.now();
+  try {
+    let { res } = await timedFetch(url, "HEAD", 8000);
+    if (res.status === 405 || res.status === 403 || res.status === 501) ({ res } = await timedFetch(url, "GET", 8000));
+    return { url, status: res.status, ok: res.status < 400, ms: Date.now() - t };
+  } catch (e) {
+    return { url, status: null, ok: false, error: e instanceof Error ? e.name : "error", ms: Date.now() - t };
+  }
+}
+
+async function pool<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>) {
+  const out: R[] = [];
+  let i = 0;
+  await Promise.all(Array.from({ length: n }, async () => { while (i < items.length) { const idx = i++; out[idx] = await fn(items[idx]); } }));
+  return out;
+}
+
+export async function crawl(target: string): Promise<ScanData> {
+  const start = Date.now();
+  const home = await scanPage(target);
+  const origin = new URL(home.finalUrl).origin;
+  const internal = home.links.filter((l) => l.startsWith(origin) && l !== home.finalUrl && !/\.(pdf|png|jpe?g|gif|zip|svg)$/i.test(l)).slice(0, 4);
+  const sub = await pool(internal, 4, async (u) => { try { return await scanPage(u); } catch { return null; } });
+  const pages = [home, ...sub.filter((p): p is PageFacts => !!p)];
+  const allLinks = [...new Set(pages.flatMap((p) => p.links))].filter((l) => !pages.some((p) => p.finalUrl === l)).slice(0, 30);
+  const linkChecks = await pool(allLinks, 6, checkLink);
+  return { target, pages, linkChecks, durationMs: Date.now() - start };
+}
