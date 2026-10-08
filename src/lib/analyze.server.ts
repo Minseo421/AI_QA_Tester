@@ -56,7 +56,7 @@ const schema = z.object({
 const INSTRUCTIONS = `You are a senior QA engineer reviewing a web app for a small team with no dedicated QA function.
 You receive TWO possible evidence sources:
 1. deterministic scan evidence: HTTP status, response timing, selected headers, server-returned HTML structure, forms, links and visible text
-2. interactive browser evidence: AI-planned actions that were actually executed in Chromium with before/after page state, visible alerts, console errors, page errors and failed requests
+2. interactive browser evidence: AI-planned TESTS that Playwright actually executed in Chromium, including the action sequence, before/after page state, visible alerts, console errors, page errors and failed requests
 
 Your job is to identify evidence-supported issues and explain them clearly. Find BOTH:
 - bugs: things the supplied evidence directly shows are broken
@@ -74,7 +74,7 @@ Rules to avoid false positives:
 - confidence must be 0..1. Use 0.9+ only when the evidence strongly supports the claim. Omit weak speculation.
 - Write plain language a developer and non-technical stakeholder can understand.
 - reproSteps must contain 1-4 short steps.
-- Report at most 10 AI findings, most important first.
+- Report at most 6 AI findings, most important first.
 - summary must be 2-3 sentences and mention whether interactive browser exploration ran successfully.`;
 
 function isVerifiedBrokenStatus(status: number | null) {
@@ -301,7 +301,8 @@ function compact(data: ScanData, browser?: BrowserRun) {
   return JSON.stringify({
     target: data.target,
     scope: {
-      method: "URL black-box scan + AI-driven Chromium exploration",
+      method:
+        "URL black-box scan + one-shot AI test plan + Playwright execution",
       pagesScanned: data.pages.length,
       interactiveBrowserActions: browser?.steps.length ?? 0,
       browserCompleted: Boolean(browser && !browser.error),
@@ -341,7 +342,7 @@ function compact(data: ScanData, browser?: BrowserRun) {
       ? {
           stopReason: browser.stopReason,
           finalUrl: browser.finalUrl,
-          steps: browser.steps.slice(0, 5).map(compactBrowserStep),
+          steps: browser.steps.slice(0, 3).map(compactBrowserStep),
         }
       : null,
   });
@@ -408,6 +409,21 @@ export async function analyze(
   browser?: BrowserRun,
   request?: Request,
 ) {
+  if (
+    browser?.error &&
+    /rate limit|tokens per min|\bTPM\b|status(?:Code)?[=: ]*429/i.test(
+      browser.error,
+    )
+  ) {
+    return fallbackReport(
+      data,
+      browser,
+      new Error(
+        "Skipped final AI synthesis because the one-shot browser planner hit an API rate limit; avoiding an immediately repeated API request.",
+      ),
+    );
+  }
+
   const apiKey = process.env["OPENAI_API_KEY"];
   if (!apiKey)
     throw new Error("AI is not configured (missing OPENAI_API_KEY).");
@@ -425,8 +441,8 @@ export async function analyze(
         },
       ],
       output: Output.object({ schema }),
-      maxOutputTokens: 2200,
-      maxRetries: 1,
+      maxOutputTokens: 1800,
+      maxRetries: 0,
       ...(request?.signal ? { abortSignal: request.signal } : {}),
       providerOptions: { openai: { store: false, reasoningEffort: "low" } },
     });
@@ -445,7 +461,7 @@ export async function analyze(
     }
   }
 
-  const ai: Finding[] = (parsed.findings ?? []).slice(0, 10).map((f, i) => ({
+  const ai: Finding[] = (parsed.findings ?? []).slice(0, 6).map((f, i) => ({
     ...f,
     id: `ai-${i}`,
     reproSteps: (f.reproSteps ?? []).slice(0, 4),

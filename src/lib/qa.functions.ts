@@ -59,11 +59,11 @@ export const runScan = createServerFn({ method: "POST" })
         linksChecked: scan.linkChecks.length,
         browser,
         scope: {
-          approach: "Deterministic scan + AI-driven browser exploration",
+          approach: "Deterministic scan + one-shot AI test plan + Playwright",
           pageLimit: 5,
           linkLimit: 30,
-          browserStepLimit: browser.maxSteps,
-          interactiveBrowserActions: browser.steps.length,
+          browserTestLimit: browser.maxTests,
+          interactiveBrowserTests: browser.steps.length,
         },
         ...report,
       };
