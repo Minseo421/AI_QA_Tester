@@ -187,7 +187,8 @@ function Progress({ step, url }: { step: number; url: string }) {
         ))}
       </ol>
       <p className="mt-4 text-xs text-muted-foreground">
-        Usually 20–60 seconds.
+        Usually 20–60 seconds. The stage labels are an estimate while the server
+        works; actual browser actions are shown in the completed trace.
       </p>
     </div>
   );
@@ -304,6 +305,19 @@ function ReportView({ report }: { report: Report }) {
           </div>
         </div>
       </div>
+
+      {report.analysisWarning && (
+        <div className="border border-improve bg-improve-soft p-4 text-sm text-improve">
+          <span className="font-mono text-xs uppercase tracking-wider">
+            Degraded AI synthesis
+          </span>
+          <p className="mt-1">{report.analysisWarning}</p>
+          <p className="mt-1 text-xs">
+            The scan and browser trace are preserved below; only the final AI
+            report synthesis failed.
+          </p>
+        </div>
+      )}
 
       <BrowserExploration browser={report.browser} />
 

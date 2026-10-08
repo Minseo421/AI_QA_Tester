@@ -122,13 +122,15 @@ Only enable `AI_QA_ALLOW_PRIVATE_TARGETS=true` when testing a local app you cont
 
 ## Optional write actions
 
-By default the browser agent blocks POST/PUT/PATCH/DELETE requests:
+By default the browser agent blocks POST/PUT/PATCH/DELETE requests **only while an AI-chosen user action is being executed**. Background/bootstrap requests are allowed so modern apps that use POST-based GraphQL or data loading can render normally:
 
 ```env
 AI_QA_BROWSER_ALLOW_WRITES=false
 ```
 
-That is the safer setting for arbitrary targets. If you are testing a staging/demo app you own and intentionally want the browser to submit real forms, you can set it to `true` and restart the server.
+That is the safer setting for arbitrary targets. The agent also uses a fresh browser context with synthetic values and blocks destructive/transactional clicks. If you are testing a staging/demo app you own and intentionally want AI actions to submit real forms, you can set it to `true` and restart the server.
+
+If the final AI synthesis fails (for example because of a transient API/rate-limit error), the app now keeps the deterministic findings and browser trace and returns a degraded report instead of throwing away the completed test run.
 
 ## Environment variables
 

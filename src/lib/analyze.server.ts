@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { streamText, Output, NoObjectGeneratedError } from "ai";
+import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 import type { BrowserRun } from "./browser-agent.server";
 import type { ScanData } from "./scanner.server";
@@ -255,7 +255,28 @@ function compact(data: ScanData, browser?: BrowserRun) {
       browserCompleted: Boolean(browser && !browser.error),
       browserError: browser?.error ?? null,
     },
-    pages: data.pages.map((p) => ({ ...p, links: `${p.links.length} links` })),
+    pages: data.pages.map((p) => ({
+      url: p.finalUrl,
+      status: p.status,
+      ms: p.ms,
+      bytes: p.bytes,
+      title: p.title,
+      metaDescription: p.metaDescription,
+      lang: p.lang,
+      viewport: p.viewport,
+      headers: p.headers,
+      h1s: p.h1s.slice(0, 5),
+      headingOutline: p.headingOutline.slice(0, 12),
+      imagesTotal: p.imagesTotal,
+      imagesMissingAlt: p.imagesMissingAlt.slice(0, 8),
+      forms: p.forms.slice(0, 5),
+      buttonsWithoutText: p.buttonsWithoutText,
+      links: `${p.links.length} links`,
+      scripts: p.scripts,
+      stylesheets: p.stylesheets,
+      mixedContent: p.mixedContent.slice(0, 5),
+      textExcerpt: p.textExcerpt.slice(0, 1200),
+    })),
     verifiedBrokenLinks: data.linkChecks.filter((l) =>
       isVerifiedBrokenStatus(l.status),
     ).length,
@@ -301,6 +322,45 @@ export function calculateQualityScore(findings: Finding[]) {
   return Math.max(0, Math.min(100, Math.round(100 - penalty)));
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    const cause = (error as Error & { cause?: unknown }).cause;
+    return cause ? `${error.message} — ${errorMessage(cause)}` : error.message;
+  }
+  if (typeof error === "object" && error !== null) {
+    const value = error as Record<string, unknown>;
+    const parts = [value["statusCode"], value["status"], value["message"]]
+      .filter((part) => part != null)
+      .map(String);
+    if (parts.length) return parts.join(" · ");
+  }
+  return String(error);
+}
+
+function fallbackReport(
+  data: ScanData,
+  browser: BrowserRun | undefined,
+  error: unknown,
+) {
+  const findings = verifiedFindings(data);
+  const browserSummary = browser?.error
+    ? `Interactive browser exploration encountered an error: ${browser.error}`
+    : browser
+      ? `Interactive browser exploration completed ${browser.steps.length} action${browser.steps.length === 1 ? "" : "s"}.`
+      : "Interactive browser exploration was not available.";
+  const detail = errorMessage(error);
+  console.error(
+    `[AI QA][analysis] final AI synthesis failed: ${detail}`,
+    error,
+  );
+  return {
+    summary: `${browserSummary} The final AI synthesis did not complete, so this degraded report shows deterministic findings and preserves the browser trace instead of discarding the test run.`,
+    score: calculateQualityScore(findings),
+    findings,
+    analysisWarning: `Final AI synthesis unavailable: ${detail}`,
+  };
+}
+
 export async function analyze(
   data: ScanData,
   browser?: BrowserRun,
@@ -311,31 +371,33 @@ export async function analyze(
     throw new Error("AI is not configured (missing OPENAI_API_KEY).");
 
   const provider = createOpenAI({ apiKey });
-  const result = streamText({
-    model: provider.responses(process.env["OPENAI_MODEL"] ?? "gpt-6-luna"),
-    instructions: INSTRUCTIONS,
-    messages: [
-      {
-        role: "user",
-        content: `QA evidence (JSON):\n${compact(data, browser)}`,
-      },
-    ],
-    output: Output.object({ schema }),
-    ...(request?.signal ? { abortSignal: request.signal } : {}),
-    providerOptions: { openai: { store: false, reasoningEffort: "low" } },
-  });
-
   let parsed: z.infer<typeof schema>;
   try {
-    parsed = (await result.output) as z.infer<typeof schema>;
+    const result = await generateText({
+      model: provider.responses(process.env["OPENAI_MODEL"] ?? "gpt-6-luna"),
+      instructions: INSTRUCTIONS,
+      messages: [
+        {
+          role: "user",
+          content: `QA evidence (JSON):\n${compact(data, browser)}`,
+        },
+      ],
+      output: Output.object({ schema }),
+      maxRetries: 1,
+      ...(request?.signal ? { abortSignal: request.signal } : {}),
+      providerOptions: { openai: { store: false, reasoningEffort: "low" } },
+    });
+    parsed = result.output as z.infer<typeof schema>;
   } catch (e) {
     if (NoObjectGeneratedError.isInstance(e) && e.text) {
       const m = e.text.match(/\{[\s\S]*\}/);
-      parsed = m
-        ? JSON.parse(m[0])
-        : { summary: "AI review could not be parsed.", findings: [] };
+      if (m) {
+        parsed = schema.parse(JSON.parse(m[0]));
+      } else {
+        return fallbackReport(data, browser, e);
+      }
     } else {
-      throw e;
+      return fallbackReport(data, browser, e);
     }
   }
 
@@ -361,5 +423,6 @@ export async function analyze(
     summary: parsed.summary,
     score: calculateQualityScore(findings),
     findings,
+    analysisWarning: null as string | null,
   };
 }

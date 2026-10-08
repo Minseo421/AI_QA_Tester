@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createOpenAI } from "@ai-sdk/openai";
-import { NoObjectGeneratedError, Output, streamText } from "ai";
+import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import {
   assertSafePublicUrl,
@@ -148,21 +148,21 @@ async function decide(
     blockedBySafety: step.blockedBySafety,
   }));
 
-  const result = streamText({
-    model: provider.responses(process.env["OPENAI_MODEL"] ?? "gpt-6-luna"),
-    instructions: AGENT_INSTRUCTIONS,
-    messages: [
-      {
-        role: "user",
-        content: `Current browser snapshot (JSON):\n${JSON.stringify(snapshot)}\n\nPrevious actions (JSON):\n${JSON.stringify(compactHistory)}`,
-      },
-    ],
-    output: Output.object({ schema: actionSchema }),
-    providerOptions: { openai: { store: false, reasoningEffort: "low" } },
-  });
-
   try {
-    return (await result.output) as AgentDecision;
+    const result = await generateText({
+      model: provider.responses(process.env["OPENAI_MODEL"] ?? "gpt-6-luna"),
+      instructions: AGENT_INSTRUCTIONS,
+      messages: [
+        {
+          role: "user",
+          content: `Current browser snapshot (JSON):\n${JSON.stringify(snapshot)}\n\nPrevious actions (JSON):\n${JSON.stringify(compactHistory)}`,
+        },
+      ],
+      output: Output.object({ schema: actionSchema }),
+      maxRetries: 1,
+      providerOptions: { openai: { store: false, reasoningEffort: "low" } },
+    });
+    return result.output as AgentDecision;
   } catch (error) {
     if (NoObjectGeneratedError.isInstance(error) && error.text) {
       const match = error.text.match(/\{[\s\S]*\}/);
@@ -483,6 +483,7 @@ export async function exploreWithBrowser(target: string): Promise<BrowserRun> {
     const safeHosts = new Set<string>();
     const unsafeHosts = new Set<string>();
     let lockedOrigin: string | null = null;
+    let actionInProgress = false;
 
     await context.route("**/*", async (route: any) => {
       const request = route.request();
@@ -521,15 +522,21 @@ export async function exploreWithBrowser(target: string): Promise<BrowserRun> {
       }
 
       const method = request.method().toUpperCase();
-      if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
-        if (
-          !config.allowWrites ||
-          (lockedOrigin && parsed.origin !== lockedOrigin)
-        ) {
-          blockedRequests.push(`blocked ${method}: ${requestUrl}`);
-          await route.abort("blockedbyclient");
-          return;
-        }
+      // Modern web apps often use POST requests simply to load data (for example
+      // GraphQL). Blocking every non-GET request changes the app before the AI
+      // even interacts with it. In safe mode, only block non-GET requests while
+      // an AI-chosen user action is actively being executed. Background/bootstrap
+      // traffic is allowed so the page can render normally.
+      if (
+        actionInProgress &&
+        !config.allowWrites &&
+        !["GET", "HEAD", "OPTIONS"].includes(method)
+      ) {
+        blockedRequests.push(
+          `blocked ${method} during AI action: ${requestUrl}`,
+        );
+        await route.abort("blockedbyclient");
+        return;
       }
 
       if (
@@ -577,6 +584,9 @@ export async function exploreWithBrowser(target: string): Promise<BrowserRun> {
     if (!response)
       throw new Error("The browser did not receive a navigation response.");
     lockedOrigin = new URL(page.url()).origin;
+    console.info(
+      `[AI QA][browser] opened ${page.url()} (HTTP ${response.status()})`,
+    );
     await page.waitForTimeout(500);
 
     for (let index = 0; index < config.maxSteps; index++) {
@@ -599,6 +609,13 @@ export async function exploreWithBrowser(target: string): Promise<BrowserRun> {
         target: string;
       };
       try {
+        const selectedElement = before.elements.find(
+          (element) => element.id === activeAction.elementId,
+        );
+        console.info(
+          `[AI QA][browser] step ${index + 1}: ${actionLabel(decision, selectedElement)}`,
+        );
+        actionInProgress = true;
         execution = await execute(
           page,
           decision,
@@ -615,6 +632,8 @@ export async function exploreWithBrowser(target: string): Promise<BrowserRun> {
               (element) => element.id === activeAction.elementId,
             )?.name ?? activeAction.elementId,
         };
+      } finally {
+        actionInProgress = false;
       }
 
       const after = await snapshot(page).catch(() => before);
