@@ -163,3 +163,9 @@ npm run browser:install  # install Playwright Chromium
 - Authentication that requires real credentials, CAPTCHAs, payments and destructive flows are out of scope.
 - Browser observations can still be ambiguous, so the report keeps confidence labels and exposes the exact trace used as evidence.
 - Accessibility/security checks are lightweight QA signals, not formal audits or penetration tests.
+
+## Token usage
+
+The AI prompts are intentionally compact: inline/base64 image URLs are removed, browser snapshots send only the most relevant interactive elements, browser history keeps only the latest few actions, and final synthesis receives summarized state changes instead of full before/after page text. Token usage for each AI call is logged in the server console as `[AI QA][tokens] ...`.
+
+For public-site smoke tests, `AI_QA_BROWSER_MAX_STEPS=3` is the recommended default. Raise it to 5 only when you need a deeper demo and have enough API rate-limit headroom.

@@ -164,7 +164,10 @@ function verifiedFindings(data: ScanData): Finding[] {
         severity: "medium",
         title: `${p.imagesMissingAlt.length} image${p.imagesMissingAlt.length === 1 ? "" : "s"} missing alt text`,
         page: p.finalUrl,
-        evidence: `Images without an alt attribute: ${p.imagesMissingAlt.slice(0, 3).join(", ")}`,
+        evidence: `Images without an alt attribute: ${p.imagesMissingAlt
+          .slice(0, 3)
+          .map((value) => compactEvidenceRef(value))
+          .join(", ")}`,
         whyItMatters:
           "Screen-reader users may miss the purpose or content of these images.",
         howToFix:
@@ -228,7 +231,10 @@ function verifiedFindings(data: ScanData): Finding[] {
         severity: "high",
         title: "HTTPS page references insecure HTTP resources",
         page: p.finalUrl,
-        evidence: `HTTP resources referenced from HTTPS: ${p.mixedContent.slice(0, 3).join(", ")}`,
+        evidence: `HTTP resources referenced from HTTPS: ${p.mixedContent
+          .slice(0, 3)
+          .map((value) => compactEvidenceRef(value))
+          .join(", ")}`,
         whyItMatters:
           "Browsers may block insecure resources, and unencrypted subresources weaken transport security.",
         howToFix: "Serve these assets over HTTPS and update their URLs.",
@@ -243,6 +249,52 @@ function verifiedFindings(data: ScanData): Finding[] {
   });
 
   return out.slice(0, 14);
+}
+
+function compactEvidenceRef(value: string, max = 180) {
+  if (/^data:/i.test(value)) return "[inline data URL omitted]";
+  if (/^blob:/i.test(value)) return "[blob URL omitted]";
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+function compactBrowserStep(step: BrowserRun["steps"][number]) {
+  const textChanged = step.before.text !== step.after.text;
+  const urlChanged = step.before.url !== step.after.url;
+  return {
+    step: step.step,
+    testGoal: step.testGoal.slice(0, 180),
+    expectedOutcome: step.expectedOutcome.slice(0, 180),
+    action: step.action.slice(0, 180),
+    target: step.target.slice(0, 120),
+    outcome: step.outcome.slice(0, 360),
+    pageState: {
+      beforeUrl: compactEvidenceRef(step.before.url, 220),
+      afterUrl: compactEvidenceRef(step.after.url, 220),
+      urlChanged,
+      textChanged,
+      alertsBefore: step.before.alerts.slice(0, 3),
+      alertsAfter: step.after.alerts.slice(0, 3),
+    },
+    consoleErrors: step.consoleErrors.slice(0, 3).map((v) => v.slice(0, 240)),
+    pageErrors: step.pageErrors.slice(0, 3).map((v) => v.slice(0, 240)),
+    failedRequests: step.failedRequests
+      .slice(0, 3)
+      .map((v) => compactEvidenceRef(v, 260)),
+    blockedBySafety: step.blockedBySafety,
+  };
+}
+
+function logTokenUsage(
+  label: string,
+  usage: {
+    inputTokens: number | undefined;
+    outputTokens: number | undefined;
+    totalTokens: number | undefined;
+  },
+) {
+  console.info(
+    `[AI QA][tokens] ${label}: input=${usage.inputTokens ?? "?"} output=${usage.outputTokens ?? "?"} total=${usage.totalTokens ?? "?"}`,
+  );
 }
 
 function compact(data: ScanData, browser?: BrowserRun) {
@@ -265,17 +317,21 @@ function compact(data: ScanData, browser?: BrowserRun) {
       lang: p.lang,
       viewport: p.viewport,
       headers: p.headers,
-      h1s: p.h1s.slice(0, 5),
-      headingOutline: p.headingOutline.slice(0, 12),
+      h1s: p.h1s.slice(0, 3),
+      headingOutline: p.headingOutline.slice(0, 7),
       imagesTotal: p.imagesTotal,
-      imagesMissingAlt: p.imagesMissingAlt.slice(0, 8),
-      forms: p.forms.slice(0, 5),
+      imagesMissingAlt: p.imagesMissingAlt
+        .slice(0, 4)
+        .map((v) => compactEvidenceRef(v)),
+      forms: p.forms.slice(0, 3),
       buttonsWithoutText: p.buttonsWithoutText,
       links: `${p.links.length} links`,
       scripts: p.scripts,
       stylesheets: p.stylesheets,
-      mixedContent: p.mixedContent.slice(0, 5),
-      textExcerpt: p.textExcerpt.slice(0, 1200),
+      mixedContent: p.mixedContent
+        .slice(0, 3)
+        .map((v) => compactEvidenceRef(v)),
+      textExcerpt: p.textExcerpt.slice(0, 650),
     })),
     verifiedBrokenLinks: data.linkChecks.filter((l) =>
       isVerifiedBrokenStatus(l.status),
@@ -285,21 +341,7 @@ function compact(data: ScanData, browser?: BrowserRun) {
       ? {
           stopReason: browser.stopReason,
           finalUrl: browser.finalUrl,
-          steps: browser.steps.map((step) => ({
-            step: step.step,
-            testGoal: step.testGoal,
-            expectedOutcome: step.expectedOutcome,
-            action: step.action,
-            target: step.target,
-            outcome: step.outcome,
-            before: step.before,
-            after: step.after,
-            consoleErrors: step.consoleErrors,
-            pageErrors: step.pageErrors,
-            failedRequests: step.failedRequests,
-            blockedRequests: step.blockedRequests,
-            blockedBySafety: step.blockedBySafety,
-          })),
+          steps: browser.steps.slice(0, 5).map(compactBrowserStep),
         }
       : null,
   });
@@ -383,10 +425,12 @@ export async function analyze(
         },
       ],
       output: Output.object({ schema }),
+      maxOutputTokens: 2200,
       maxRetries: 1,
       ...(request?.signal ? { abortSignal: request.signal } : {}),
       providerOptions: { openai: { store: false, reasoningEffort: "low" } },
     });
+    logTokenUsage("final synthesis", result.usage);
     parsed = result.output as z.infer<typeof schema>;
   } catch (e) {
     if (NoObjectGeneratedError.isInstance(e) && e.text) {

@@ -130,6 +130,48 @@ function browserConfig() {
   };
 }
 
+function compactUrl(value: string | null, max = 180) {
+  if (!value) return null;
+  if (/^data:/i.test(value)) return "[inline data URL]";
+  if (/^blob:/i.test(value)) return "[blob URL]";
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+function plannerSnapshot(snapshot: BrowserSnapshot) {
+  return {
+    url: compactUrl(snapshot.url, 220),
+    title: snapshot.title.slice(0, 160),
+    text: snapshot.text.slice(0, 600),
+    alerts: snapshot.alerts.slice(0, 4).map((value) => value.slice(0, 180)),
+    elements: snapshot.elements.slice(0, 22).map((element) => ({
+      id: element.id,
+      tag: element.tag,
+      type: element.type,
+      role: element.role,
+      name: element.name.slice(0, 120),
+      placeholder: element.placeholder?.slice(0, 100) ?? null,
+      href: compactUrl(element.href),
+      required: element.required,
+      disabled: element.disabled,
+      formMethod: element.formMethod,
+      options: element.options.slice(0, 6),
+    })),
+  };
+}
+
+function logTokenUsage(
+  label: string,
+  usage: {
+    inputTokens: number | undefined;
+    outputTokens: number | undefined;
+    totalTokens: number | undefined;
+  },
+) {
+  console.info(
+    `[AI QA][tokens] ${label}: input=${usage.inputTokens ?? "?"} output=${usage.outputTokens ?? "?"} total=${usage.totalTokens ?? "?"}`,
+  );
+}
+
 async function decide(
   snapshot: BrowserSnapshot,
   history: BrowserTraceStep[],
@@ -139,14 +181,15 @@ async function decide(
     throw new Error("AI is not configured (missing OPENAI_API_KEY).");
   const provider = createOpenAI({ apiKey });
 
-  const compactHistory = history.map((step) => ({
+  const compactHistory = history.slice(-3).map((step) => ({
     step: step.step,
-    testGoal: step.testGoal,
-    action: step.action,
-    target: step.target,
-    outcome: step.outcome,
+    testGoal: step.testGoal.slice(0, 160),
+    action: step.action.slice(0, 160),
+    target: step.target.slice(0, 120),
+    outcome: step.outcome.slice(0, 220),
     blockedBySafety: step.blockedBySafety,
   }));
+  const compactSnapshot = plannerSnapshot(snapshot);
 
   try {
     const result = await generateText({
@@ -155,13 +198,15 @@ async function decide(
       messages: [
         {
           role: "user",
-          content: `Current browser snapshot (JSON):\n${JSON.stringify(snapshot)}\n\nPrevious actions (JSON):\n${JSON.stringify(compactHistory)}`,
+          content: `Current browser snapshot (compact JSON):\n${JSON.stringify(compactSnapshot)}\n\nPrevious actions, newest context only (JSON):\n${JSON.stringify(compactHistory)}`,
         },
       ],
       output: Output.object({ schema: actionSchema }),
+      maxOutputTokens: 420,
       maxRetries: 1,
       providerOptions: { openai: { store: false, reasoningEffort: "low" } },
     });
+    logTokenUsage("browser planner", result.usage);
     return result.output as AgentDecision;
   } catch (error) {
     if (NoObjectGeneratedError.isInstance(error) && error.text) {
@@ -200,7 +245,7 @@ async function snapshot(page: any): Promise<BrowserSnapshot> {
           box.height > 0
         );
       })
-      .slice(0, 35);
+      .slice(0, 24);
 
     const elements = nodes.map((el, index) => {
       const id = `e${index}`;
@@ -288,8 +333,8 @@ async function snapshot(page: any): Promise<BrowserSnapshot> {
     return {
       url: location.href,
       title: document.title,
-      text: clean(document.body?.innerText, 1400),
-      alerts: Array.from(new Set([...ariaAlerts, ...validation])).slice(0, 8),
+      text: clean(document.body?.innerText, 900),
+      alerts: Array.from(new Set([...ariaAlerts, ...validation])).slice(0, 5),
       elements,
     };
   });
@@ -301,7 +346,7 @@ function brief(
   return {
     url: snapshotValue.url,
     title: snapshotValue.title,
-    text: snapshotValue.text.slice(0, 900),
+    text: snapshotValue.text.slice(0, 500),
     alerts: snapshotValue.alerts,
   };
 }
