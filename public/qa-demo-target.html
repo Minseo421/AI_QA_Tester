@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Acme Event Signup — QA Demo Target</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 720px; margin: 48px auto; padding: 0 20px; color: #172033; }
+      form { display: grid; gap: 12px; max-width: 460px; margin-top: 24px; }
+      label { display: grid; gap: 6px; font-weight: 600; }
+      input, button { font: inherit; padding: 10px 12px; }
+      button { cursor: pointer; }
+      .actions { display: flex; gap: 10px; margin-top: 16px; }
+      #status { min-height: 24px; margin-top: 14px; font-weight: 700; }
+      img { width: 100%; max-width: 520px; height: 120px; object-fit: cover; background: #e8edf5; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>Internal demo app</p>
+      <h1>Register for the Acme Product Night</h1>
+      <p>This tiny page intentionally contains a few QA issues so the AI tester has deterministic things to discover during a live demo.</p>
+
+      <!-- Intentional accessibility issue: no alt attribute. -->
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='180'%3E%3Crect width='800' height='180' fill='%23dfe7f3'/%3E%3C/svg%3E" />
+
+      <form id="signup-form">
+        <label>
+          Name
+          <input id="name" name="name" placeholder="Your name" required />
+        </label>
+        <label>
+          Email address
+          <!-- Intentional functional issue: text input + JS accepts invalid email. -->
+          <input id="email" name="email" type="text" placeholder="you@example.com" required />
+        </label>
+
+        <!-- Intentional accessibility issue: no label or aria-label. -->
+        <input id="company" name="company" placeholder="Company (optional)" />
+
+        <button type="submit">Join event</button>
+      </form>
+
+      <div id="status" role="alert" aria-live="assertive"></div>
+
+      <div class="actions">
+        <!-- Intentional functional issue: button looks actionable but does nothing. -->
+        <button id="continue" type="button">Continue to confirmation</button>
+        <!-- Intentional broken route for the deterministic crawler. -->
+        <a href="/qa-demo-missing.html">View event schedule</a>
+      </div>
+    </main>
+
+    <script>
+      const form = document.getElementById("signup-form");
+      const status = document.getElementById("status");
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const email = document.getElementById("email").value;
+        status.textContent = email ? "Registration accepted." : "Registration accepted without an email.";
+      });
+
+      document.getElementById("continue").addEventListener("click", () => {
+        // Intentionally no state change, navigation, or feedback.
+      });
+    </script>
+  </body>
+</html>
