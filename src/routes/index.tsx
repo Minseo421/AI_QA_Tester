@@ -41,6 +41,8 @@ const SAMPLES = [
   "https://example.com",
   "https://news.ycombinator.com",
   "https://books.toscrape.com",
+  "http://localhost:3000/qa-demo-target.html",
+  "https://www.instagram.com/",
 ];
 
 function Index() {
@@ -81,96 +83,110 @@ function Index() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 font-mono text-xs uppercase tracking-widest">
-          <span className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-accent" />
-            AI QA Tester
-          </span>
-          <span className="text-muted-foreground">
-            no test scripts required
-          </span>
-        </div>
-      </header>
-
-      <section className="grid-paper border-b border-border">
-        <div className="mx-auto max-w-6xl px-6 py-16">
-          <p className="font-mono text-xs uppercase tracking-widest text-accent">
-            // point it at a running app
-          </p>
-          <h1 className="mt-3 max-w-3xl text-5xl font-bold leading-[1.05] tracking-tight md:text-6xl">
-            Your QA team of one.
-            <br />
-            Paste a URL, get a bug report.
-          </h1>
-          <p className="mt-4 max-w-xl text-muted-foreground">
-            AI looks at the initial browser state once, plans up to three safe
-            exploratory tests, and Playwright executes that plan in a real
-            Chromium browser. A deterministic scan runs alongside it so the
-            final report combines hard evidence with observed user-flow
-            behaviour.
-          </p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              go(url);
-            }}
-            className="mt-8 flex max-w-2xl border-2 border-foreground bg-card"
-          >
-            <span className="hidden items-center px-4 font-mono text-sm text-muted-foreground sm:flex">
-              URL
+    <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
+      <div className="pointer-events-none fixed inset-0" aria-hidden>
+        <div className="absolute -left-[10%] -top-[10%] h-[70%] w-[70%] rounded-full bg-glow-1/20 blur-[120px]" />
+        <div className="absolute -right-[20%] top-[20%] h-[60%] w-[60%] rounded-full bg-glow-2/15 blur-[100px]" />
+      </div>
+      <div className="relative z-10">
+        <header className="border-b border-border bg-background/70 backdrop-blur-sm">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 font-mono text-xs uppercase tracking-widest">
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-accent shadow-[0_0_10px] shadow-accent/80" />
+              AI QA Tester
             </span>
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://your-app.com"
-              disabled={loading}
-              className="min-w-0 flex-1 bg-transparent px-3 py-4 font-mono text-sm outline-none"
-            />
-            <button
-              disabled={loading || !url.trim()}
-              className="bg-foreground px-6 font-mono text-sm uppercase tracking-wider text-background transition hover:bg-accent disabled:opacity-50"
-            >
-              {loading ? "Scanning…" : "Run test"}
-            </button>
-          </form>
-          <div className="mt-3 flex flex-wrap gap-2 font-mono text-xs text-muted-foreground">
-            try:
-            {SAMPLES.map((s) => (
-              <button
-                key={s}
-                disabled={loading}
-                onClick={() => go(s)}
-                className="underline decoration-dotted hover:text-accent"
-              >
-                {s.replace("https://", "")}
-              </button>
-            ))}
+            <span className="text-muted-foreground">
+              no test scripts required
+            </span>
           </div>
-        </div>
-      </section>
+        </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-10">
-        {loading && <Progress step={step} url={url} />}
-        {error && (
-          <div className="border-2 border-bug bg-bug-soft p-5 font-mono text-sm text-bug">
-            ✕ {error}
+        <section className="grid-paper border-b border-border">
+          <div className="mx-auto max-w-6xl px-6 py-16 md:py-20">
+            <p className="inline-flex rounded-full border border-accent/30 bg-accent/10 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-accent">
+              // point it at a running app
+            </p>
+            <h1 className="mt-5 max-w-6xl font-display text-5xl font-extrabold leading-[1.08] md:text-6xl">
+              Your QA team of one.
+              <br />
+              <span className="bg-gradient-to-r from-accent to-glow-2 bg-clip-text text-transparent">
+                Paste a URL
+              </span>
+              , get a bug report.
+            </h1>
+            <p className="mt-5 max-w-6xl text-base leading-7 text-muted-foreground">
+              AI looks at the initial browser state once, plans up to three safe
+              exploratory tests, and Playwright executes that plan in a real
+              Chromium browser. A deterministic scan runs alongside it so the
+              final report combines hard evidence with observed user-flow
+              behaviour.
+            </p>
+            <div className="group relative mt-8 max-w-6xl">
+              <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-accent to-glow-2 opacity-30 blur transition group-focus-within:opacity-60" />
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  go(url);
+                }}
+                className="relative flex rounded-2xl border border-border bg-card/80 backdrop-blur-sm"
+              >
+                <span className="hidden items-center px-5 font-mono text-xl uppercase tracking-widest text-foreground/80 sm:flex">
+                  URL
+                </span>
+                <input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://your-app.com"
+                  disabled={loading}
+                  className="min-w-0 flex-1 bg-transparent px-5 py-5 font-mono text-base outline-none placeholder:text-muted-foreground/70"
+                />
+                <button
+                  disabled={loading || !url.trim()}
+                  className="m-2 rounded-xl bg-primary px-7 font-mono text-base font-bold uppercase tracking-wider text-primary-foreground transition hover:opacity-90 active:scale-95 disabled:opacity-50"
+                >
+                  {loading ? "Scanning…" : "Run test"}
+                </button>
+              </form>
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 font-mono text-sm text-muted-foreground">
+              Try:
+              {SAMPLES.map((s) => (
+                <button
+                  key={s}
+                  disabled={loading}
+                  onClick={() => go(s)}
+                  className="text-accent/80 underline decoration-accent/30 underline-offset-4 transition hover:text-accent disabled:opacity-50"
+                >
+                  {s.replace("https://", "")}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
-        {report && <ReportView report={report} />}
-        {!loading && !report && !error && <HowItWorks />}
-      </main>
+        </section>
+
+        <main className="mx-auto max-w-6xl px-6 py-12">
+          {loading && <Progress step={step} url={url} />}
+          {error && (
+            <div className="rounded-2xl border border-bug/40 bg-bug-soft p-5 font-mono text-sm text-bug">
+              ✕ {error}
+            </div>
+          )}
+          {report && <ReportView report={report} />}
+          {!loading && !report && !error && <HowItWorks />}
+        </main>
+      </div>
     </div>
   );
 }
 
 function Progress({ step, url }: { step: number; url: string }) {
   return (
-    <div className="relative overflow-hidden border-2 border-foreground bg-card p-6">
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-card/75 p-7 backdrop-blur-sm">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-transparent via-accent/15 to-transparent animate-scanline" />
-      <p className="font-mono text-xs text-muted-foreground">target: {url}</p>
-      <ol className="mt-4 space-y-2 font-mono text-sm">
+      <p className="font-mono text-xs uppercase tracking-widest text-foreground/70">
+        target: {url}
+      </p>
+      <ol className="mt-4 space-y-3 font-mono text-base">
         {STEPS.map((s, i) => (
           <li
             key={s}
@@ -187,7 +203,7 @@ function Progress({ step, url }: { step: number; url: string }) {
           </li>
         ))}
       </ol>
-      <p className="mt-4 text-xs text-muted-foreground">
+      <p className="mt-5 text-sm text-muted-foreground">
         Usually 20–60 seconds. The stage labels are an estimate while the server
         works; actual browser tests are shown in the completed trace.
       </p>
@@ -198,30 +214,33 @@ function Progress({ step, url }: { step: number; url: string }) {
 function HowItWorks() {
   const items = [
     [
-      "01 Observe",
-      "Maps the page and collects deterministic evidence such as links, forms, status codes and accessibility signals.",
+      "01 Crawl",
+      "Fetches the target plus up to 4 same-origin pages, recording status, headers, links, forms, accessibility signals and mixed-content evidence.",
     ],
     [
-      "02 Decide",
-      "AI sees the initial browser state once and plans up to three self-contained exploratory tests — no handwritten test script.",
+      "02 Plan",
+      "AI sees one compact browser snapshot and plans up to 3 safe exploratory tests using only elements found on the page.",
     ],
     [
-      "03 Act",
-      "Playwright executes the whole plan without another planner call after every action, then records before/after state and runtime signals.",
+      "03 Execute",
+      "Playwright runs the planned tests in Chromium from fresh reloads, blocking unsafe writes and cross-origin navigation while recording outcomes.",
     ],
     [
       "04 Report",
-      "AI combines browser observations with verified scan evidence into prioritized bugs and improvements.",
+      "Verified scan findings and browser observations are synthesized into prioritized bugs and improvements, each tied back to evidence.",
     ],
   ];
   return (
-    <div className="grid gap-px border border-border bg-border md:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-4">
       {items.map(([t, d]) => (
-        <div key={t} className="bg-background p-5">
+        <div
+          key={t}
+          className="rounded-2xl border border-border bg-card/75 p-6 backdrop-blur-sm"
+        >
           <p className="font-mono text-xs uppercase tracking-widest text-accent">
             {t}
           </p>
-          <p className="mt-2 text-sm text-muted-foreground">{d}</p>
+          <p className="mt-3 text-base leading-7 text-muted-foreground">{d}</p>
         </div>
       ))}
     </div>
@@ -260,52 +279,54 @@ function ReportView({ report }: { report: Report }) {
   const markdown = useMemo(() => toMarkdown(report, active), [report, active]);
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden border-2 border-foreground bg-card">
-        <div className="grid md:grid-cols-[190px_1fr]">
-          <div className="flex flex-col justify-center border-b border-border p-6 md:border-b-0 md:border-r">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+    <div className="space-y-10 text-base">
+      <section className="overflow-hidden rounded-2xl border border-border bg-card/80 backdrop-blur-sm">
+        <div className="grid md:grid-cols-[230px_1fr]">
+          <div className="flex flex-col justify-center border-b border-border p-7 md:border-b-0 md:border-r">
+            <p className="font-mono text-xs uppercase tracking-[0.16em] text-foreground/70">
               Evidence score
             </p>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-6xl font-bold tracking-tighter">
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="font-display text-7xl font-extrabold">
                 {report.score}
               </span>
-              <span className="text-lg text-muted-foreground">/100</span>
+              <span className="text-2xl text-foreground/70">/100</span>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-3 text-base leading-relaxed text-muted-foreground">
               Evidence-weighted, not AI-generated.
             </p>
           </div>
 
-          <div className="p-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="bg-bug-soft px-2.5 py-1 font-mono text-xs text-bug">
+          <div className="p-7">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="rounded-full bg-bug-soft px-4 py-1.5 font-mono text-base text-bug">
                 {bugs} {bugs === 1 ? "bug" : "bugs"}
               </span>
-              <span className="bg-improve-soft px-2.5 py-1 font-mono text-xs text-improve">
+              <span className="rounded-full bg-improve-soft px-4 py-1.5 font-mono text-base text-improve">
                 {imps} {imps === 1 ? "improvement" : "improvements"}
               </span>
-              <span className="border border-border px-2.5 py-1 font-mono text-xs text-muted-foreground">
+              <span className="rounded-full border border-border px-4 py-1.5 font-mono text-base text-foreground/75">
                 {report.browser.steps.length} browser tests
               </span>
             </div>
 
-            <h2 className="mt-4 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            <h2 className="mt-6 font-mono text-sm uppercase tracking-[0.16em] text-foreground/70">
               What the test found
             </h2>
-            <p className="mt-2 max-w-3xl text-lg leading-7">{report.summary}</p>
+            <p className="mt-3 max-w-none text-xl leading-9 text-foreground">
+              {report.summary}
+            </p>
 
-            <div className="mt-5 flex flex-wrap gap-2 font-mono text-xs">
+            <div className="mt-6 flex flex-wrap gap-3 font-mono text-sm">
               <button
                 onClick={() => navigator.clipboard.writeText(markdown)}
-                className="border border-foreground px-3 py-2 transition hover:bg-foreground hover:text-background"
+                className="rounded-full border border-border px-4 py-2 transition hover:border-accent/50 hover:bg-accent/10"
               >
                 Copy Markdown
               </button>
               <button
                 onClick={() => download(markdown)}
-                className="border border-foreground px-3 py-2 transition hover:bg-foreground hover:text-background"
+                className="rounded-full border border-border px-4 py-2 transition hover:border-accent/50 hover:bg-accent/10"
               >
                 Download report
               </button>
@@ -315,12 +336,12 @@ function ReportView({ report }: { report: Report }) {
       </section>
 
       {report.analysisWarning && (
-        <div className="border border-improve bg-improve-soft p-4 text-sm text-improve">
-          <span className="font-mono text-xs uppercase tracking-wider">
+        <div className="rounded-2xl border border-improve/40 bg-improve-soft p-5 text-base text-improve">
+          <span className="font-mono text-sm uppercase tracking-wider">
             Degraded AI synthesis
           </span>
           <p className="mt-1">{report.analysisWarning}</p>
-          <p className="mt-1 text-xs">
+          <p className="mt-1 text-sm">
             The deterministic scan and completed browser trace are still shown.
           </p>
         </div>
@@ -328,26 +349,38 @@ function ReportView({ report }: { report: Report }) {
 
       <BrowserExploration browser={report.browser} />
 
-      <section>
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
+      <section className="rounded-2xl border border-border bg-card/35 p-5 backdrop-blur-sm">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
+            <p className="font-mono text-sm uppercase tracking-[0.16em] text-accent">
               Findings
             </p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+            <h2 className="mt-2 text-3xl font-semibold tracking-tight">
               Issues worth reviewing
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-2 text-base text-muted-foreground">
               Open a finding for evidence, impact, reproduction steps and a
               suggested fix.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 font-mono text-xs">
+          <div className="flex flex-wrap gap-2 font-mono text-sm">
             {(["all", "bug", "improvement"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`border px-3 py-1.5 transition ${filter === f ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground"}`}
+                className={`rounded-full border px-4 py-2 uppercase transition ${
+                  filter === f
+                    ? f === "bug"
+                      ? "border-transparent bg-bug-soft text-bug"
+                      : f === "improvement"
+                        ? "border-transparent bg-improve-soft text-improve"
+                        : "border-transparent bg-accent text-accent-foreground"
+                    : f === "bug"
+                      ? "border-bug/40 text-bug hover:bg-bug-soft"
+                      : f === "improvement"
+                        ? "border-improve/40 text-improve hover:bg-improve-soft"
+                        : "border-border text-foreground/70 hover:border-accent/50"
+                }`}
               >
                 {f === "all"
                   ? `All ${active.length}`
@@ -359,9 +392,9 @@ function ReportView({ report }: { report: Report }) {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           {main.length === 0 && (
-            <div className="border border-dashed border-border p-6 text-sm text-muted-foreground">
+            <div className="rounded-2xl border border-dashed border-border bg-card/60 p-7 text-base text-muted-foreground backdrop-blur-sm">
               No high-confidence findings in this view.
             </div>
           )}
@@ -372,10 +405,10 @@ function ReportView({ report }: { report: Report }) {
       </section>
 
       {low.length > 0 && (
-        <div className="border-t border-border pt-4">
+        <div className="rounded-2xl border border-border bg-card/35 p-5 backdrop-blur-sm">
           <button
             onClick={() => setShowLow(!showLow)}
-            className="font-mono text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
+            className="font-mono text-sm uppercase tracking-wider text-foreground/70 hover:text-foreground"
           >
             {showLow ? "▾" : "▸"} {low.length} low-confidence findings
             <span className="ml-2 normal-case tracking-normal">
@@ -383,7 +416,7 @@ function ReportView({ report }: { report: Report }) {
             </span>
           </button>
           {showLow && (
-            <div className="mt-3 space-y-3 opacity-80">
+            <div className="mt-4 space-y-4 opacity-90">
               {low.map((f) => (
                 <FindingCard key={f.id} f={f} onDismiss={() => toggle(f)} />
               ))}
@@ -393,7 +426,7 @@ function ReportView({ report }: { report: Report }) {
       )}
 
       {hidden.length > 0 && (
-        <details className="border border-border bg-card p-4 font-mono text-xs text-muted-foreground">
+        <details className="rounded-2xl border border-border bg-card/70 p-5 font-mono text-sm text-foreground/70 backdrop-blur-sm">
           <summary className="cursor-pointer uppercase tracking-wider">
             Dismissed findings ({hidden.length})
           </summary>
@@ -402,7 +435,7 @@ function ReportView({ report }: { report: Report }) {
               <button
                 key={f.id}
                 onClick={() => toggle(f)}
-                className="border border-border px-2 py-1 hover:border-foreground hover:text-foreground"
+                className="rounded-full border border-border px-3 py-1 hover:border-accent/50 hover:text-foreground"
               >
                 ↺ {f.title}
               </button>
@@ -428,29 +461,29 @@ function BrowserExploration({ browser }: { browser: Report["browser"] }) {
   ).length;
 
   return (
-    <details className="group border border-border bg-card">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 [&::-webkit-details-marker]:hidden">
+    <details className="group rounded-2xl border border-border bg-card/80 backdrop-blur-sm">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-5 p-6 [&::-webkit-details-marker]:hidden">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-mono text-sm uppercase tracking-[0.16em] text-accent">
               AI browser exploration
             </span>
-            <span className="border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+            <span className="rounded-full border border-border px-3 py-1.5 font-mono text-sm text-foreground/75">
               {browser.steps.length}/{browser.plannedTests || browser.maxTests}{" "}
               tests executed
             </span>
             {safetyLimited > 0 && (
-              <span className="bg-improve-soft px-2 py-0.5 font-mono text-[10px] text-improve">
+              <span className="rounded-full bg-improve-soft px-3 py-1.5 font-mono text-sm text-improve">
                 {safetyLimited} safety-limited
               </span>
             )}
             {runtimeSignals > 0 && (
-              <span className="border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+              <span className="rounded-full border border-border px-3 py-1.5 font-mono text-sm text-foreground/75">
                 {runtimeSignals} with runtime signals
               </span>
             )}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-3 text-lg text-muted-foreground">
             AI planned the tests once; Playwright executed them in a real
             Chromium browser.
           </p>
@@ -475,19 +508,21 @@ function BrowserExploration({ browser }: { browser: Report["browser"] }) {
             {browser.steps.map((step) => (
               <li key={step.step}>
                 <details className="group/test">
-                  <summary className="grid cursor-pointer list-none gap-2 px-4 py-3 md:grid-cols-[58px_1fr_auto] md:items-center [&::-webkit-details-marker]:hidden">
-                    <span className="font-mono text-[10px] text-muted-foreground">
+                  <summary className="grid cursor-pointer list-none gap-4 px-6 py-5 md:grid-cols-[92px_1fr_auto] md:items-center [&::-webkit-details-marker]:hidden">
+                    <span className="font-mono text-sm uppercase tracking-[0.16em] text-foreground/70">
                       TEST {step.step}
                     </span>
                     <div className="min-w-0">
-                      <p className="font-medium">{step.testGoal}</p>
-                      <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+                      <p className="text-xl font-semibold leading-snug text-foreground">
+                        {step.testGoal}
+                      </p>
+                      <p className="mt-1 truncate font-mono text-base text-foreground/65">
                         {step.action}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {step.blockedBySafety && (
-                        <span className="bg-improve-soft px-2 py-1 font-mono text-[10px] text-improve">
+                        <span className="rounded-full bg-improve-soft px-3 py-1.5 font-mono text-sm text-improve">
                           safety-limited
                         </span>
                       )}
@@ -497,11 +532,11 @@ function BrowserExploration({ browser }: { browser: Report["browser"] }) {
                     </div>
                   </summary>
 
-                  <div className="grid gap-4 border-t border-border bg-muted/30 px-4 py-4 text-sm md:grid-cols-2">
+                  <div className="grid gap-6 border-t border-border bg-muted/35 px-6 py-6 text-lg md:grid-cols-2">
                     <Field label="Expected">{step.expectedOutcome}</Field>
                     <Field label="Observed">{step.outcome}</Field>
                     {step.blockedBySafety && (
-                      <div className="md:col-span-2 rounded-sm bg-improve-soft p-3 font-mono text-xs text-improve">
+                      <div className="rounded-2xl bg-improve-soft p-4 font-mono text-sm text-improve md:col-span-2">
                         Safety policy affected this test. Effects caused by the
                         block are not treated as app bugs.
                       </div>
@@ -509,7 +544,7 @@ function BrowserExploration({ browser }: { browser: Report["browser"] }) {
                     {(step.consoleErrors.length > 0 ||
                       step.pageErrors.length > 0 ||
                       step.failedRequests.length > 0) && (
-                      <details className="md:col-span-2 border-t border-border pt-3 font-mono text-xs text-muted-foreground">
+                      <details className="border-t border-border pt-4 font-mono text-base text-muted-foreground md:col-span-2">
                         <summary className="cursor-pointer">
                           Runtime signals
                         </summary>
@@ -542,26 +577,28 @@ function FindingCard({ f, onDismiss }: { f: Finding; onDismiss: () => void }) {
   const bug = f.kind === "bug";
   return (
     <article
-      className={`overflow-hidden border bg-card ${bug ? "border-l-4 border-l-bug" : "border-l-4 border-l-improve"} border-y-border border-r-border`}
+      className={`overflow-hidden rounded-2xl border bg-card/75 backdrop-blur-sm ${bug ? "border-l-4 border-l-bug" : "border-l-4 border-l-improve"} border-y-border border-r-border`}
     >
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-start gap-3 p-4 text-left transition hover:bg-muted/30"
+        className="flex w-full items-start gap-4 p-5 text-left transition hover:bg-muted/30"
       >
         <span
-          className={`mt-0.5 shrink-0 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider ${bug ? "bg-bug-soft text-bug" : "bg-improve-soft text-improve"}`}
+          className={`mt-0.5 shrink-0 px-3 py-1.5 font-mono text-sm uppercase tracking-wider ${bug ? "bg-bug-soft text-bug" : "bg-improve-soft text-improve"}`}
         >
           {bug ? "Bug" : "Improve"}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-            <h3 className="font-medium leading-snug">{f.title}</h3>
-            <span className="max-w-full truncate font-mono text-[10px] text-muted-foreground md:max-w-xs">
+            <h3 className="text-xl font-semibold leading-snug text-foreground">
+              {f.title}
+            </h3>
+            <span className="max-w-full truncate font-mono text-sm text-foreground/65 md:max-w-xs">
               {displayPage(f.page)}
             </span>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-[10px] text-muted-foreground">
-            <span className="border border-border px-1.5 py-0.5 uppercase">
+          <div className="mt-3 flex flex-wrap items-center gap-2 font-mono text-sm text-foreground/65">
+            <span className="border border-border px-2.5 py-1 uppercase text-foreground/75">
               {f.severity}
             </span>
             <span>{f.category}</span>
@@ -575,32 +612,34 @@ function FindingCard({ f, onDismiss }: { f: Finding; onDismiss: () => void }) {
             )}
           </div>
         </div>
-        <span className="shrink-0 font-mono text-muted-foreground">
+        <span className="shrink-0 font-mono text-lg text-muted-foreground">
           {open ? "−" : "+"}
         </span>
       </button>
 
       {open && (
-        <div className="border-t border-border bg-muted/20 p-4 text-sm">
-          <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-            <div className="space-y-4">
+        <div className="border-t border-border bg-muted/25 p-6 text-lg">
+          <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+            <div className="space-y-6">
               <Field label="Evidence">
-                <code className="block break-words bg-background p-3 font-mono text-xs leading-relaxed">
+                <code className="block break-words rounded-2xl border border-border bg-background/70 p-5 font-mono text-base leading-relaxed text-foreground">
                   {f.evidence}
                 </code>
               </Field>
               <Field label="Page">
-                <span className="break-all font-mono text-xs">{f.page}</span>
+                <span className="break-all font-mono text-base text-foreground">
+                  {f.page}
+                </span>
               </Field>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-1">
               <Field label="Why it matters">{f.whyItMatters}</Field>
               <Field label="How to fix">{f.howToFix}</Field>
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-border pt-4">
+          <div className="mt-6 flex flex-wrap items-end justify-between gap-5 border-t border-border pt-5">
             {f.reproSteps.length > 0 ? (
               <Field label="Steps to reproduce">
                 <ol className="list-decimal space-y-1 pl-5">
@@ -614,7 +653,7 @@ function FindingCard({ f, onDismiss }: { f: Finding; onDismiss: () => void }) {
             )}
             <button
               onClick={onDismiss}
-              className="ml-auto font-mono text-xs uppercase tracking-wider text-muted-foreground underline decoration-dotted hover:text-foreground"
+              className="ml-auto font-mono text-base uppercase tracking-wider text-foreground/70 underline decoration-dotted hover:text-foreground"
             >
               Not a problem — dismiss
             </button>
@@ -627,11 +666,11 @@ function FindingCard({ f, onDismiss }: { f: Finding; onDismiss: () => void }) {
 
 function RunDetails({ report }: { report: Report }) {
   return (
-    <details className="border border-border bg-card font-mono text-xs">
-      <summary className="cursor-pointer p-4 uppercase tracking-wider text-muted-foreground">
+    <details className="rounded-2xl border border-border bg-card/70 font-mono text-sm backdrop-blur-sm">
+      <summary className="cursor-pointer p-5 uppercase tracking-wider text-foreground/70">
         Run details
       </summary>
-      <div className="grid gap-4 border-t border-border p-4 text-muted-foreground md:grid-cols-2">
+      <div className="grid gap-5 border-t border-border p-5 text-muted-foreground md:grid-cols-2">
         <div>
           <p className="text-foreground">Target</p>
           <p className="mt-1 break-all">{report.target}</p>
@@ -675,10 +714,10 @@ function Field({
 }) {
   return (
     <div>
-      <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+      <p className="mb-2.5 font-mono text-sm uppercase tracking-[0.14em] text-foreground/70">
         {label}
       </p>
-      <div className="leading-relaxed">{children}</div>
+      <div className="leading-relaxed text-foreground">{children}</div>
     </div>
   );
 }
